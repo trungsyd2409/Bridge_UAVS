@@ -1,69 +1,174 @@
-# BRIDGE beta
+# BRIDGE
 
-Vietnamese/English responsive workplace journal and rights-guidance prototype, based on the team’s approved BRIDGE proposal and blue UI.
+**Know Your Rights: A Safe Bridge for Vietnamese Migrant Workers**
+UAVS Hackathon 2026 — challenge set by Reclaim Migrant Workers Centre NSW
 
-## Working in this beta
+**Live demo: https://bridge.trung-syd2409.workers.dev**
 
-- Navy sidebar, pale-blue header, mobile navigation, light/dark/system themes and VI/EN interface.
-- Bridge-opening and handshake splash; animated abstract blue assistant orb. Both honour reduced motion.
-- Five-step onboarding (language, nickname, industry, employment type, residency/visa), editable profile context, suggested work visas and manual entry for any visa. Suggestions are explicitly not the entire visa catalogue. Official Home Affairs directory is linked.
-- Unlimited jobs with role, 15 industry groups plus other/unsure, employment type, calendar colour, multiple workplaces/addresses/timezones, prospective/active/archived status.
-- Week/month calendar with actual current dates, leap years, year boundaries, today navigation and 15-second rollover checks. Calendar timezone defaults to Australia/Sydney and can be changed.
-- Planned and actual shifts, explicit overnight end date, unpaid breaks, workplace timezone/DST-aware elapsed hours, explicit choice for repeated times and rejection of skipped DST times. Overlap warnings cover all jobs.
-- Agreed hourly rates snapshot into each shift. Future rate edits do not rewrite saved shifts. This is not an award/minimum wage engine.
-- Unknown/unpaid/part-paid/paid payment states, received amount/date/method, payslip status, notes and last-update timestamps. Planned shifts convert to actual only after user review; the prior planned duration is not retained as a separate baseline in this beta.
-- Device-local encrypted jobs and shifts. PBKDF2-SHA256 250,000 iterations, AES-GCM, random salt and fresh IV on every write. Password/key never persisted; lock or reload clears decrypted records from app state.
-- Reads previous encrypted array-format journals without changing ciphertext on unlock. Migration keeps original notes/payment values; historical timezone is explicitly assumed Sydney and old positive payments are marked part-paid, not confirmed complete.
-- JSON export, confirmed journal/shift deletion, protection against stale writes after another tab changes the journal. No cross-device sync or password recovery. Export is unencrypted.
-- Four free-text learning scenarios with prepared comparison guidance; official support links and Fair Work newsroom link.
-- Live AI assistant at `/api/assistant`. A question in Vietnamese or English is classified (intent, entities, risk), searched against 239 chunks of Fair Work guidance (768-dimension vectors plus BM25, fused with reciprocal rank fusion, then rescored by Gemini), and answered in five parts with numbered citations back to the source pages. Answers follow the interface language.
-- The retrieval layer runs entirely inside the Worker: `lib/assistant/rag-data.json` carries the exported corpus, vectors and BM25 index, so there is no database call and no second service. The BM25 scoring reproduces SQLite FTS5 `bm25(context_header 2.0, content 1.0)` exactly, and the Porter stemmer matches SQLite's `porter unicode61` tokenizer on the whole corpus vocabulary.
-- Emergency block (000, Lifeline, TIS National, police) is generated in code from keyword scanning, not by the model, so it still appears when the model fails.
-- Graceful degradation: no API key, a network failure or a model outage falls back to keyword-only retrieval and prepared per-topic answers, and the interface labels the answer as prepared. Money figures in a generated answer must trace back to the evidence or to the user's own words, or the answer is discarded in favour of the prepared one.
-- The assistant never reads the encrypted work journal. Chat history is kept in React state only and is not stored on the server.
-- Installable manifest and icons. Network required to open; no offline service worker.
-- / and /home; sections use hash navigation. Feature-detected WebMCP navigation does not submit/export/unlock data.
+A Vietnamese-first workplace rights app. Workers record their own shifts, ask
+questions in plain Vietnamese and get answers grounded in Fair Work guidance
+with sources attached, then get pointed to real human help.
 
-## Boundaries
+---
 
-Live ABN lookup, visa verification, complete searchable visa catalogue, award calculations, voice input, attachment uploads and formal audit history are not connected. Optional employer ABN is recorded in encrypted job records or the temporary Job check form. Copy and open the official ABN Lookup site to search manually; no results or verified status are imported. Job check prefills industry/employment from the profile and shows them in its result. Chat sends the question and the onboarding profile codes to the Bridge server, which calls Gemini; it never sends the journal. Answers are general information, not legal advice, and every screen says so. There is no implied RMWC endorsement. Legal guides and links require professional review before public release. All job/rate/time/payment records are self-reported, not independently verified.
+## The problem, and where each answer lives in the app
 
-## Validation
+The RMWC brief gives three numbers. Each one is answered by a specific screen.
 
-Run `node --test tests/work-model.test.mjs` for leap years, year rollover, timezone dates, Sydney and Lord Howe DST, overnight hours, overlap boundaries, legacy migration, encryption round trips, wrong-password rejection and tamper rejection. TypeScript and the production build are checked for this milestone. Browser visual/E2E and WebMCP runtime validation have not been performed.
+| From the brief | Where the app answers it |
+|---|---|
+| 38% do not seek help because they fear it will affect their visa | First newsroom item on the home screen: contacting Fair Work does not affect your visa |
+| 62% of underpaid workers believe they themselves broke the law | Assistant answers state plainly that being underpaid is not the worker's fault |
+| Only 25% of Vietnamese temporary residents receive the minimum casual rate | Job check and the assistant's pay comparison |
 
-## AI configuration
+---
 
-Copy `.dev.vars.example` to `.dev.vars` and set `GEMINI_API_KEY` (free key from https://aistudio.google.com/apikey). `.dev.vars` is the Cloudflare Workers local-secrets file and is gitignored; in production set the same variables under the Worker's Variables and Secrets. Optional: `ABN_LOOKUP_GUID` enables direct ABN lookups, `RAG_FAKE_GEMINI=1` runs the whole flow without calling Gemini, `AI_SKIP_RERANK=1` trades accuracy for speed. Without a key the app still runs on keyword search and prepared answers. No extra npm dependency was added: the Gemini calls are plain `fetch` against the REST API.
+## What it does
 
-## Deployment
+**Shift journal.** Multiple jobs, multiple workplaces, planned and actual shifts,
+overnight shifts, unpaid breaks, timezone and DST aware hours, overlap warnings.
+Payment state per shift: unknown, unpaid, part paid, paid, plus payslip status.
 
-The project targets **Cloudflare Workers** natively (vinext + `@cloudflare/vite-plugin` + wrangler). `wrangler.jsonc` holds the Worker name, compatibility date and asset binding; `vite.config.ts` layers the Sites hosting bindings on top of it.
+Why this matters: under **Fair Work Act 2009 (Cth) s 557C**, where an employer
+fails to keep records or issue payslips, the burden of disproof shifts to the
+employer. A worker's own contemporaneous record then carries real weight. The app
+does not litigate for anyone; it helps a worker walk in holding something.
+
+**AI assistant.** Vietnamese questions in, structured answers out: what may be
+happening, why it matters, what you can do, what evidence to keep, who can help.
+Every answer carries numbered sources and a legal-information disclaimer, and
+every answer offers a route to a human. Retrieval runs over a vetted Fair Work
+corpus; the model never supplies pay figures from memory, those come from a
+lookup table in code.
+
+**Job check.** Industry, employment type, role, agreed rate, hours, optional ABN.
+Returns a checklist of what to verify rather than a verdict.
+
+**Interface.** Vietnamese and English, light/dark/system, reduced-motion honoured,
+responsive from 375px to desktop, installable via web manifest.
+
+**Privacy.** No account, no email, no server-side user data. The shift journal is
+encrypted on the device with a password the user sets: PBKDF2-SHA256 at 250,000
+iterations, AES-GCM, fresh salt and IV on every write. The key is never stored.
+Locking or reloading clears decrypted records from memory. There is no password
+recovery and no cross-device sync, by design.
+
+---
+
+## Honest limits
+
+These are stated plainly because a wrong number here would harm the exact people
+this app is for.
+
+- **Pay comparison uses the national minimum wage, not award rates.** The lookup
+  table in `lib/assistant/wages.ts` carries the national minimum with its
+  effective date. **Most awards set higher rates**, plus penalty rates for
+  weekends, public holidays and nights. Being above the national minimum does not
+  mean a worker has been paid correctly, and every answer says so. Connecting the
+  Fair Work Commission Modern Awards Pay Database is the next step.
+- **The figures in that table must be re-verified against fairwork.gov.au before
+  any public release.**
+- **No RMWC referral summary yet.** The brief's Safe Referral Pathways section
+  asks for a consented structured summary of concern, dates, evidence, preferred
+  language and assistance type. Not built.
+- **ABN lookup opens the official register only.** Nothing is imported, and an
+  active ABN says nothing about whether an employer pays correctly.
+- Legal content requires professional review before public release.
+- All job, rate, time and payment records are self-reported and unverified.
+- Network required to open; no offline service worker.
+- There is no RMWC endorsement of this prototype.
+
+**Scope.** BRIDGE provides legal *information*, not legal *advice*. It does not
+conclude that anyone broke the law and does not lodge complaints. It routes to
+RMWC, the Fair Work Ombudsman and TIS National.
+
+---
+
+## Stack
+
+Next.js App Router on **vinext** + Vite, React 19, TypeScript, Tailwind CSS v4,
+shadcn components, deployed as a **Cloudflare Worker**. Gemini for NLU, reranking
+and answer generation. Retrieval reads `lib/assistant/rag-data.json`, a vector
+index exported from the Python pipeline (Cloudflare Workers has no `node:sqlite`,
+so the SQLite build is exported to JSON at build time).
+
+Requires **Node 22.5+** and **pnpm**.
+
+## Run locally
 
 ```bash
-npx wrangler login                       # once
+corepack enable
+pnpm install
+cp .dev.vars.example .dev.vars   # then paste GEMINI_API_KEY into it
+pnpm dev
+```
+
+Opens on **http://localhost:5173**.
+
+Without a key the app still runs: keyword intent detection, corpus retrieval and
+prepared answers, still with sources. Only the generated prose is missing.
+
+## Checks
+
+```bash
+node node_modules/typescript/bin/tsc --noEmit
+node --test tests/work-model.test.mjs
+pnpm build
+```
+
+Tests cover leap years, year rollover, Sydney and Lord Howe DST, overnight hours,
+overlap boundaries, legacy migration, encryption round trips, wrong-password
+rejection and tamper rejection. **7/7 passing.**
+
+## Deploy
+
+```bash
+npx wrangler login
 npx @vinext/cloudflare deploy
-npx wrangler secret put GEMINI_API_KEY   # after the first deploy
+npx wrangler secret put GEMINI_API_KEY --name bridge
 ```
 
-`.dev.vars` covers local dev only — production reads Worker secrets. Deploying before the secret exists is safe: the assistant falls back to keyword search and prepared answers until the key is set. Add `account_id` to `wrangler.jsonc` only if your Cloudflare login has more than one account.
+Do not declare `compatibility_flags` in `wrangler.jsonc` — the generated
+`dist/server/wrangler.json` already sets `nodejs_compat`, and declaring it twice
+fails deployment with error 10021.
 
-**Vercel** is supported through the Nitro Vite plugin. `vite.config.ts` picks the target automatically: it uses Cloudflare unless `VERCEL`, `NITRO_PRESET` or `DEPLOY_TARGET=nitro` is set, in which case it swaps in Nitro and shims `cloudflare:workers` to `process.env`. One-time setup:
+Secrets live in Cloudflare, never in the repo. `.dev.vars` is gitignored;
+`.dev.vars.example` is the committed template.
 
-```bash
-pnpm add -D nitro          # commit the updated pnpm-lock.yaml
+---
+
+## Layout
+
+```
+app/page.tsx              main UI flow
+app/work-hub.tsx          jobs, calendar, shifts, payments
+app/job-fields.tsx        industry, employment type, ABN
+app/bridge-ui.tsx         brand marks and the animated assistant orb
+app/api/assistant/route.ts   POST /api/assistant
+lib/assistant/            NLU, retrieval, rerank, grounding, answer, wages
+lib/assistant/rag-data.json  exported vector index
+lib/work-model.ts         dates, DST, encryption, legacy migration
+tests/work-model.test.mjs
 ```
 
-Then push the repo and import it on Vercel. `vercel.json` already sets Framework Preset to none and the build command to `vite build`, so leave the Output Directory empty — Nitro writes Vercel's Build Output API format and Vercel picks it up. Add `GEMINI_API_KEY` (and optionally `ABN_LOOKUP_GUID`) under Settings → Environment Variables for Production, Preview and Development.
+Assistant integration contract:
 
-This checkout pins pnpm 11 in `packageManager` and uses pnpm-11 keys in `pnpm-workspace.yaml`, which Vercel's bundled pnpm 9/10 does not understand. Add an environment variable `ENABLE_EXPERIMENTAL_COREPACK` = `1` to the Vercel project so it installs with the pinned pnpm instead.
+```
+POST /api/assistant
+  { message: string, lang: "vi"|"en", profile: { visa, industry, employment } }
+→ { response: { answer: { whatIsHappening, whyItMatters, whatToDo[],
+                          evidenceToKeep[], whoCanHelp[], citations[], grounding },
+                sources[], urgent, intent, risk, mode, disclaimer } }
+```
 
-To reproduce the Vercel build locally: `NITRO_PRESET=vercel npx vite build` (PowerShell: `$env:NITRO_PRESET="vercel"; npx vite build`).
+---
 
-Vercel Functions default to a 300-second maximum duration on every plan with Fluid compute, which is well above the assistant's worst case (roughly 25 seconds), so no `maxDuration` override is needed.
+## Submission
 
-## Development and source
+This repository is the UAVS Hackathon 2026 submission. `trungsyd2409/Bridge` is
+an earlier working repository kept for history and is not the submission.
 
-Preserve pnpm-lock.yaml and the existing Sites configuration. Use `node node_modules/typescript/bin/tsc --noEmit`, the tests above and the established build scripts. No secrets are required for this local-data beta. This checkout is backed by the Site’s source repository, not yet linked to the team’s separate GitHub repository. Open the checkout in VS Code for further development.
-
-`public/cafe-worker.png` and `public/sydney-harbour.png` are original generated illustrations; they are not news photos. Bridge logo and handshake use code-native brand geometry and Lucide icon shapes. Visa suggestion labels reference the Home Affairs skilled occupation list and visa directory; suggestions do not establish eligibility or current visa conditions.
+`public/cafe-worker.png` and `public/sydney-harbour.png` are original generated
+illustrations, not news photographs. The bridge logo and handshake are drawn in
+code. Visa labels reference the Home Affairs visa directory; they do not
+establish eligibility or current visa conditions.
