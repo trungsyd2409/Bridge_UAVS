@@ -52,6 +52,58 @@ pnpm build
 
 Không đặt API key trong code phía trình duyệt hoặc commit `.dev.vars`. Key chỉ đọc ở phía server qua `lib/assistant/env.ts`; trình duyệt không bao giờ thấy nó. Mỗi câu trả lời đều kèm nguồn, và trường hợp không đủ bằng chứng thì trợ lý nói rõ là chưa đủ thông tin thay vì đoán.
 
+## Deploy
+
+### Cloudflare Workers (đường chính)
+
+```bash
+npx wrangler login                       # một lần
+npx @vinext/cloudflare deploy
+npx wrangler secret put GEMINI_API_KEY   # sau lần deploy đầu
+```
+
+`wrangler.jsonc` giữ tên Worker, ngày tương thích và binding assets; `vite.config.ts` chồng
+thêm binding theo `.openai/hosting.json` lên trên.
+
+`.dev.vars` chỉ dùng cho local — bản chạy thật đọc secret của Worker. Deploy trước khi có
+secret vẫn an toàn: trợ lý tự lùi về tìm từ khoá + câu trả lời mẫu cho tới khi đặt key.
+Chỉ cần thêm `account_id` vào `wrangler.jsonc` nếu tài khoản Cloudflare của bạn có nhiều account.
+
+### Vercel
+
+Đường Vercel đi qua plugin Nitro. `vite.config.ts` tự chọn: mặc định Cloudflare, còn khi có biến
+`VERCEL`, `NITRO_PRESET` hoặc `DEPLOY_TARGET=nitro` thì chuyển sang Nitro và thay
+`cloudflare:workers` bằng `process.env`. Làm một lần:
+
+```bash
+pnpm add -D nitro          # nhớ commit cả pnpm-lock.yaml
+```
+
+Rồi push repo lên GitHub và import vào Vercel. File `vercel.json` đã đặt sẵn Framework Preset
+là none và build command là `vite build`; ô Output Directory để trống. Vào
+Settings → Environment Variables thêm `GEMINI_API_KEY` (và `ABN_LOOKUP_GUID` nếu có) cho cả
+Production, Preview và Development — Vercel không đọc file `.dev.vars`.
+
+Dự án ghim pnpm 11 trong `packageManager`, và `pnpm-workspace.yaml` dùng cú pháp của pnpm 11
+(`allowBuilds`, `strictDepBuilds`, `minimumReleaseAge`). Vercel mặc định dùng pnpm 9/10 nên sẽ
+không hiểu, dễ hỏng bước install. Thêm biến môi trường `ENABLE_EXPERIMENTAL_COREPACK` = `1`
+trong Settings → Environment Variables để Vercel cài bằng đúng pnpm đã ghim.
+
+Nếu `pnpm add -D nitro` bị chặn vì luật `minimumReleaseAge` (package mới hơn 7 ngày):
+
+```bash
+pnpm add -D nitro --config.minimumReleaseAge=0
+```
+
+Muốn thử build giống Vercel ngay trên máy:
+
+```powershell
+$env:NITRO_PRESET="vercel"; npx vite build
+```
+
+Giới hạn thời gian chạy của Vercel Functions hiện là 300 giây ở mọi gói (kể cả Hobby) khi bật
+Fluid compute, thừa sức cho trợ lý (chậm nhất khoảng 25 giây), nên không cần đặt `maxDuration`.
+
 ## Cấu trúc quan trọng
 
 - `app/page.tsx`: luồng giao diện chính.
@@ -66,6 +118,8 @@ Không đặt API key trong code phía trình duyệt hoặc commit `.dev.vars`.
 - `lib/assistant/`: bộ não AI — `index.ts` là điểm vào, xem `lib/assistant/README.md`.
 - `lib/assistant/rag-data.json`: kho tài liệu Fair Work đã xuất sẵn (239 đoạn + vector + chỉ mục BM25).
 - `.dev.vars.example`: mẫu biến môi trường; chép thành `.dev.vars` rồi điền GEMINI_API_KEY.
+- `vite.config.ts`: chọn nơi deploy (Cloudflare mặc định, Nitro khi build cho Vercel).
+- `vercel.json`: cấu hình sẵn cho Vercel.
 
 ## Bản tham chiếu
 

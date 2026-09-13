@@ -36,6 +36,32 @@ Run `node --test tests/work-model.test.mjs` for leap years, year rollover, timez
 
 Copy `.dev.vars.example` to `.dev.vars` and set `GEMINI_API_KEY` (free key from https://aistudio.google.com/apikey). `.dev.vars` is the Cloudflare Workers local-secrets file and is gitignored; in production set the same variables under the Worker's Variables and Secrets. Optional: `ABN_LOOKUP_GUID` enables direct ABN lookups, `RAG_FAKE_GEMINI=1` runs the whole flow without calling Gemini, `AI_SKIP_RERANK=1` trades accuracy for speed. Without a key the app still runs on keyword search and prepared answers. No extra npm dependency was added: the Gemini calls are plain `fetch` against the REST API.
 
+## Deployment
+
+The project targets **Cloudflare Workers** natively (vinext + `@cloudflare/vite-plugin` + wrangler). `wrangler.jsonc` holds the Worker name, compatibility date and asset binding; `vite.config.ts` layers the Sites hosting bindings on top of it.
+
+```bash
+npx wrangler login                       # once
+npx @vinext/cloudflare deploy
+npx wrangler secret put GEMINI_API_KEY   # after the first deploy
+```
+
+`.dev.vars` covers local dev only — production reads Worker secrets. Deploying before the secret exists is safe: the assistant falls back to keyword search and prepared answers until the key is set. Add `account_id` to `wrangler.jsonc` only if your Cloudflare login has more than one account.
+
+**Vercel** is supported through the Nitro Vite plugin. `vite.config.ts` picks the target automatically: it uses Cloudflare unless `VERCEL`, `NITRO_PRESET` or `DEPLOY_TARGET=nitro` is set, in which case it swaps in Nitro and shims `cloudflare:workers` to `process.env`. One-time setup:
+
+```bash
+pnpm add -D nitro          # commit the updated pnpm-lock.yaml
+```
+
+Then push the repo and import it on Vercel. `vercel.json` already sets Framework Preset to none and the build command to `vite build`, so leave the Output Directory empty — Nitro writes Vercel's Build Output API format and Vercel picks it up. Add `GEMINI_API_KEY` (and optionally `ABN_LOOKUP_GUID`) under Settings → Environment Variables for Production, Preview and Development.
+
+This checkout pins pnpm 11 in `packageManager` and uses pnpm-11 keys in `pnpm-workspace.yaml`, which Vercel's bundled pnpm 9/10 does not understand. Add an environment variable `ENABLE_EXPERIMENTAL_COREPACK` = `1` to the Vercel project so it installs with the pinned pnpm instead.
+
+To reproduce the Vercel build locally: `NITRO_PRESET=vercel npx vite build` (PowerShell: `$env:NITRO_PRESET="vercel"; npx vite build`).
+
+Vercel Functions default to a 300-second maximum duration on every plan with Fluid compute, which is well above the assistant's worst case (roughly 25 seconds), so no `maxDuration` override is needed.
+
 ## Development and source
 
 Preserve pnpm-lock.yaml and the existing Sites configuration. Use `node node_modules/typescript/bin/tsc --noEmit`, the tests above and the established build scripts. No secrets are required for this local-data beta. This checkout is backed by the Site’s source repository, not yet linked to the team’s separate GitHub repository. Open the checkout in VS Code for further development.

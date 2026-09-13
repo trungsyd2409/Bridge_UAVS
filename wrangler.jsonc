@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Tên Worker, cũng là tên miền: bridge.<subdomain-cua-ban>.workers.dev
+  "name": "bridge",
+  // Ngày tương thích. Chọn 2026-05-15 cho khớp với workerd/wrangler đang cài trong
+  // dự án; đặt ngày mới hơn bản workerd hỗ trợ sẽ làm wrangler báo lỗi.
+  "compatibility_date": "2026-05-15",
+  // vinext tự chọn handler App Router hay Pages Router lúc build.
+  "main": "vinext/server/fetch-handler",
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  }
+  // account_id: chỉ cần khi tài khoản Cloudflare của bạn có nhiều account.
+  // Lấy bằng `wrangler whoami`, rồi thêm: "account_id": "..."
+  //
+  // GEMINI_API_KEY KHÔNG đặt ở đây (file này được commit). Đặt bằng:
+  //   npx wrangler secret put GEMINI_API_KEY
+  // hoặc trong Cloudflare dashboard: Workers -> bridge -> Settings -> Variables and Secrets.
+}
