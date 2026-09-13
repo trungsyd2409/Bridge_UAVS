@@ -16,16 +16,25 @@ Vietnamese/English responsive workplace journal and rights-guidance prototype, b
 - Reads previous encrypted array-format journals without changing ciphertext on unlock. Migration keeps original notes/payment values; historical timezone is explicitly assumed Sydney and old positive payments are marked part-paid, not confirmed complete.
 - JSON export, confirmed journal/shift deletion, protection against stale writes after another tab changes the journal. No cross-device sync or password recovery. Export is unencrypted.
 - Four free-text learning scenarios with prepared comparison guidance; official support links and Fair Work newsroom link.
+- Live AI assistant at `/api/assistant`. A question in Vietnamese or English is classified (intent, entities, risk), searched against 239 chunks of Fair Work guidance (768-dimension vectors plus BM25, fused with reciprocal rank fusion, then rescored by Gemini), and answered in five parts with numbered citations back to the source pages. Answers follow the interface language.
+- The retrieval layer runs entirely inside the Worker: `lib/assistant/rag-data.json` carries the exported corpus, vectors and BM25 index, so there is no database call and no second service. The BM25 scoring reproduces SQLite FTS5 `bm25(context_header 2.0, content 1.0)` exactly, and the Porter stemmer matches SQLite's `porter unicode61` tokenizer on the whole corpus vocabulary.
+- Emergency block (000, Lifeline, TIS National, police) is generated in code from keyword scanning, not by the model, so it still appears when the model fails.
+- Graceful degradation: no API key, a network failure or a model outage falls back to keyword-only retrieval and prepared per-topic answers, and the interface labels the answer as prepared. Money figures in a generated answer must trace back to the evidence or to the user's own words, or the answer is discarded in favour of the prepared one.
+- The assistant never reads the encrypted work journal. Chat history is kept in React state only and is not stored on the server.
 - Installable manifest and icons. Network required to open; no offline service worker.
 - / and /home; sections use hash navigation. Feature-detected WebMCP navigation does not submit/export/unlock data.
 
 ## Boundaries
 
-Live AI, live ABN lookup, visa verification, complete searchable visa catalogue, award calculations, voice input, attachment uploads and formal audit history are not connected. Optional employer ABN is recorded in encrypted job records or the temporary Job check form. Copy and open the official ABN Lookup site to search manually; no results or verified status are imported. Job check prefills industry/employment from the profile and shows them in its result. Chat is clearly labelled as prepared topic guides, not an AI analysis; it never reads the journal or sends prompts externally. There is no implied RMWC endorsement. Legal guides and links require professional review before public release. All job/rate/time/payment records are self-reported, not independently verified.
+Live ABN lookup, visa verification, complete searchable visa catalogue, award calculations, voice input, attachment uploads and formal audit history are not connected. Optional employer ABN is recorded in encrypted job records or the temporary Job check form. Copy and open the official ABN Lookup site to search manually; no results or verified status are imported. Job check prefills industry/employment from the profile and shows them in its result. Chat sends the question and the onboarding profile codes to the Bridge server, which calls Gemini; it never sends the journal. Answers are general information, not legal advice, and every screen says so. There is no implied RMWC endorsement. Legal guides and links require professional review before public release. All job/rate/time/payment records are self-reported, not independently verified.
 
 ## Validation
 
 Run `node --test tests/work-model.test.mjs` for leap years, year rollover, timezone dates, Sydney and Lord Howe DST, overnight hours, overlap boundaries, legacy migration, encryption round trips, wrong-password rejection and tamper rejection. TypeScript and the production build are checked for this milestone. Browser visual/E2E and WebMCP runtime validation have not been performed.
+
+## AI configuration
+
+Copy `.dev.vars.example` to `.dev.vars` and set `GEMINI_API_KEY` (free key from https://aistudio.google.com/apikey). `.dev.vars` is the Cloudflare Workers local-secrets file and is gitignored; in production set the same variables under the Worker's Variables and Secrets. Optional: `ABN_LOOKUP_GUID` enables direct ABN lookups, `RAG_FAKE_GEMINI=1` runs the whole flow without calling Gemini, `AI_SKIP_RERANK=1` trades accuracy for speed. Without a key the app still runs on keyword search and prepared answers. No extra npm dependency was added: the Gemini calls are plain `fetch` against the REST API.
 
 ## Development and source
 

@@ -1,0 +1,32 @@
+# Bien moi truong cho tro ly AI cua BRIDGE.
+#
+# Chep file nay thanh `.dev.vars` (khong co duoi .example) roi dien gia tri that.
+# `.dev.vars` la chuan cua Cloudflare Workers cho local dev; no da nam trong .gitignore.
+# Khi deploy: dat cac bien nay trong Settings -> Variables and Secrets cua Worker.
+#
+#   cp .dev.vars.example .dev.vars
+#   pnpm dev
+#
+# Khong bao gio commit `.dev.vars`, va khong bao gio dat API key trong code chay o trinh duyet.
+
+# BAT BUOC de tro ly tra loi bang AI. Lay tai https://aistudio.google.com/apikey
+# Thieu bien nay: app van chay, nhung chi tim bang tu khoa + tra loi mau.
+GEMINI_API_KEY=
+
+# TUY CHON: doi danh sach model. De trong thi dung mac dinh trong lib/assistant/config.ts
+# (model manh truoc, model nhe lam du phong). Ghi nhieu model, cach nhau dau phay.
+# GEMINI_MODELS=gemini-3.5-flash-lite,gemini-flash-lite-latest
+# AI_NLU_MODELS=
+# AI_RERANK_MODELS=
+# AI_ANSWER_MODELS=
+
+# TUY CHON: bo buoc rerank cho nhanh hon (doi lai kem chinh xac hon).
+# AI_SKIP_RERANK=1
+
+# TUY CHON: chay toan bo luong ma khong goi Gemini. Dung de thu giao dien khi chua co key.
+# RAG_FAKE_GEMINI=1
+
+# TUY CHON: tra cuu ABN truc tiep tu Australian Business Register.
+# Dang ky mien phi tai https://abr.business.gov.au/Tools/WebServices
+# Thieu bien nay: app bo qua buoc tra ABN, cac buoc khac van chay binh thuong.
+ABN_LOOKUP_GUID=

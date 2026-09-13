@@ -9,6 +9,7 @@ Yêu cầu: Node.js 22.13 trở lên và pnpm.
 ```bash
 corepack enable
 pnpm install
+cp .dev.vars.example .dev.vars   # roi dan GEMINI_API_KEY vao
 pnpm dev
 ```
 
@@ -35,17 +36,21 @@ pnpm build
 - Nhật ký mã hóa trên thiết bị bằng mật khẩu riêng.
 - ABN tùy chọn và dẫn sang ABN Lookup để người dùng tự đối chiếu.
 - Animation mở app và trợ lý Bridge chuyển động.
+- Trợ lý AI thật: câu hỏi tiếng Việt/Anh → phân loại ý định → tìm trong 239 đoạn tài liệu Fair Work
+  (vector 768 chiều + BM25, gộp bằng RRF, Gemini chấm lại) → câu trả lời 5 phần kèm trích nguồn [n].
+- Khối cảnh báo khẩn cấp do code tạo, không phụ thuộc AI: hỏng AI thì vẫn hiện số 000, Lifeline, TIS.
+- Không có API key vẫn chạy: tự chuyển sang tìm từ khoá + câu trả lời mẫu, có ghi rõ trên giao diện.
 
 ## Những phần cần tiếp tục
 
-- Chat hiện là hướng dẫn mẫu theo chủ đề; chưa kết nối LLM/RAG thật.
-- Chưa có kho kiến thức Fair Work được lập phiên bản và kiểm duyệt.
-- Chưa có công cụ tính award/mức lương chính thức.
-- ABN chưa tự lấy kết quả từ ABN Lookup API.
+- Kho kiến thức Fair Work chưa được lập phiên bản và kiểm duyệt bởi chuyên gia pháp lý.
+- Chưa có công cụ tính award/mức lương chính thức (mới chỉ có bảng lương tối thiểu quốc gia).
+- ABN Lookup đã có sẵn code nhưng cần ABN_LOOKUP_GUID mới chạy.
+- Chống spam đang giữ trong RAM của từng Worker isolate; muốn chắc chắn thì chuyển sang Durable Object hoặc KV.
 - Chưa có đăng nhập, đồng bộ nhiều thiết bị hoặc cơ sở dữ liệu người dùng.
 - Chưa có voice input, upload payslip hoặc OCR.
 
-Không đặt API key trong code phía trình duyệt hoặc commit `.env`. Nếu thêm AI, hãy giữ key ở phía server, trích nguồn cho từng câu trả lời và chuyển các trường hợp không chắc chắn sang hỗ trợ con người.
+Không đặt API key trong code phía trình duyệt hoặc commit `.dev.vars`. Key chỉ đọc ở phía server qua `lib/assistant/env.ts`; trình duyệt không bao giờ thấy nó. Mỗi câu trả lời đều kèm nguồn, và trường hợp không đủ bằng chứng thì trợ lý nói rõ là chưa đủ thông tin thay vì đoán.
 
 ## Cấu trúc quan trọng
 
@@ -57,6 +62,10 @@ Không đặt API key trong code phía trình duyệt hoặc commit `.env`. Nế
 - `lib/job-options.ts`: danh sách ngành nghề/hình thức làm việc.
 - `app/globals.css`, `app/beta.css`: giao diện responsive và dark mode.
 - `tests/work-model.test.mjs`: kiểm tra lịch, DST, mã hóa và dữ liệu cũ.
+- `app/api/assistant/route.ts`: API của trợ lý AI (POST, chạy phía server).
+- `lib/assistant/`: bộ não AI — `index.ts` là điểm vào, xem `lib/assistant/README.md`.
+- `lib/assistant/rag-data.json`: kho tài liệu Fair Work đã xuất sẵn (239 đoạn + vector + chỉ mục BM25).
+- `.dev.vars.example`: mẫu biến môi trường; chép thành `.dev.vars` rồi điền GEMINI_API_KEY.
 
 ## Bản tham chiếu
 
